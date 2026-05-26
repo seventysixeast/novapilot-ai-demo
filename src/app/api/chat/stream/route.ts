@@ -198,6 +198,31 @@ Rules:
               ];
               await adminClient.from("ai_query_citations").insert(allCitations);
             }
+
+            // Live Resend Email Dispatch for Cache hits
+            const emailMatch = cachedAnswer.match(/\[ACTION_EMAIL:\s*TO=([^|]+)\|\s*SUBJECT=([^|]+)\|\s*BODY=([\s\S]+?)\]/i);
+            if (emailMatch) {
+              const toEmail = emailMatch[1].trim();
+              const mailSubject = emailMatch[2].trim();
+              const mailBody = emailMatch[3].trim();
+
+              if (process.env.RESEND_API_KEY) {
+                try {
+                  const { Resend } = require("resend");
+                  const resend = new Resend(process.env.RESEND_API_KEY);
+                  await resend.emails.send({
+                    from: "NovaPilot AI <onboarding@resend.dev>",
+                    to: toEmail,
+                    subject: mailSubject,
+                    text: mailBody,
+                  });
+                  console.log(`[RESEND CACHE SUCCESS]: Outbound email sent successfully to ${toEmail}`);
+                } catch (resendError) {
+                  console.error("[RESEND CACHE DISPATCH ERROR]:", resendError);
+                }
+              }
+            }
+
           } catch (cachedLogError) {
             console.error("[STREAM CHAT] Failed to log cached response:", cachedLogError);
           }
@@ -326,6 +351,32 @@ Rules:
               prompt_tokens: inputTokens,
               completion_tokens: outputTokens,
             });
+
+            // Live Resend Email Dispatch for Stream completions
+            const emailMatch = fullResponseText.match(/\[ACTION_EMAIL:\s*TO=([^|]+)\|\s*SUBJECT=([^|]+)\|\s*BODY=([\s\S]+?)\]/i);
+            if (emailMatch) {
+              const toEmail = emailMatch[1].trim();
+              const mailSubject = emailMatch[2].trim();
+              const mailBody = emailMatch[3].trim();
+
+              if (process.env.RESEND_API_KEY) {
+                try {
+                  const { Resend } = require("resend");
+                  const resend = new Resend(process.env.RESEND_API_KEY);
+                  await resend.emails.send({
+                    from: "NovaPilot AI <onboarding@resend.dev>",
+                    to: toEmail,
+                    subject: mailSubject,
+                    text: mailBody,
+                  });
+                  console.log(`[RESEND SUCCESS]: Outbound email sent successfully to ${toEmail}`);
+                } catch (resendError) {
+                  console.error("[RESEND DISPATCH ERROR]:", resendError);
+                }
+              } else {
+                console.log(`[RESEND NOTICE]: Setup process.env.RESEND_API_KEY to send live to ${toEmail}`);
+              }
+            }
           }
         } catch (streamError) {
           console.error("[STREAM CHAT] Stream Processing Error:", streamError);
