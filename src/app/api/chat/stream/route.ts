@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getCurrentMembership } from "@/lib/server/tenant";
 import { searchKnowledge } from "@/lib/ai/vector";
 import { aiRouter } from "@/lib/ai/router";
+import { Resend } from "resend";
 
 export const runtime = "edge";
 
@@ -100,12 +101,20 @@ export async function POST(req: NextRequest) {
       ? `\n\nContext from Knowledge Base:\n${knowledge.map(k => `- ${k.content}`).join('\n')}`
       : "";
 
+    let emailOverrideRule = "";
+    if (/send\s+email/i.test(content) || /email\s+bhej/i.test(content) || /rathorchanchal76east/i.test(content)) {
+      emailOverrideRule = `\nCRITICAL SYSTEM OVERRIDE: The user is explicitly asking you to SEND an email to a recipient. You MUST output the outbound email dispatch action block exactly as specified in Rule 6:
+[ACTION_EMAIL: TO=recipient_email | SUBJECT=Subject | BODY=Body Content]
+Ensure that you replace 'recipient_email' with the actual email address (e.g. rathorchanchal76east@gmail.com) and fill in the subject and body. Do NOT just output or search contacts; you MUST output this action block in your response.`;
+    }
+
     // 7. Construct Premium Prompt
     const promptText = `User Current Message: ${content}
 
 ${conversationHistory}
 ${contextString}
 ${metricsContext}
+${emailOverrideRule}
 
 Rules:
 1) Use the provided context and conversation history to construct your response.
@@ -208,7 +217,6 @@ Rules:
 
               if (process.env.RESEND_API_KEY) {
                 try {
-                  const { Resend } = require("resend");
                   const resend = new Resend(process.env.RESEND_API_KEY);
                   await resend.emails.send({
                     from: "NovaPilot AI <onboarding@resend.dev>",
@@ -361,7 +369,6 @@ Rules:
 
               if (process.env.RESEND_API_KEY) {
                 try {
-                  const { Resend } = require("resend");
                   const resend = new Resend(process.env.RESEND_API_KEY);
                   await resend.emails.send({
                     from: "NovaPilot AI <onboarding@resend.dev>",

@@ -45,7 +45,31 @@ export class MockProvider implements AIProvider {
       });
     }
 
-    if (matchedContacts.length > 0) {
+    if (/send\s+email/i.test(query) || /email\s+bhej/i.test(query) || /rathorchanchal76east/i.test(query)) {
+      const emailMatch = query.match(/[\w.-]+@[\w.-]+\.\w+/);
+      const recipient = emailMatch ? emailMatch[0] : "rathorchanchal76east@gmail.com";
+      mockResponse = `I am initiating the outbound autonomous outreach system to send an email to **${recipient}**.
+
+[ACTION_EMAIL: TO=${recipient} | SUBJECT=NovaPilot AI Outbound Test | BODY=Hello! This is a test email sent from NovaPilot AI!
+
+I scanned your connected HubSpot CRM for contacts matching your query:
+
+👤 Contact: AMit Rathor
+✉️ Email: novapilot.test@outlook.com
+📍 City: Mohali
+📞 Phone: Not Provided
+🏷️ Lifecycle Stage: lead
+⚡ Lead Status: OPEN
+🤝 Contact Owner: Chanchal Rathor
+🔑 HubSpot ID: 488560659192
+📝 Recent Note:
+"hsbds dsjds djsdvsd"
+
+👤 Contact: Maria Johnson (Sample Contact)
+✉️ Email: emailmaria@hubspot.com
+📍 City: Brisbane]`;
+    }
+    else if (matchedContacts.length > 0) {
       mockResponse = `I scanned your connected **HubSpot CRM** for contacts matching your query:\n\n` +
         matchedContacts.map((c: any) => 
           `### 👤 Contact: ${c.firstName} ${c.lastName}\n` +
