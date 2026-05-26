@@ -112,7 +112,10 @@ Rules:
 2) If the user's question references past messages (using pronouns like "this", "it", "that", "earlier", "their", etc.), resolve them using the conversation history.
 3) If no context or history is relevant, explain why.
 4) Professional tone.
-5) Always reference the synced analytics metrics (like MRR, Active Users, LTV, CAC) when asked about growth, pipeline performance, anomalies, or system metrics.`;
+5) Always reference the synced analytics metrics (like MRR, Active Users, LTV, CAC) when asked about growth, pipeline performance, anomalies, or system metrics.
+6) If the user asks you to send an email or outbound message (e.g. "Send email to bh@hubspot.com about payment success" or "bh@hubspot.com ko email bhej do that payment is done"), you MUST generate a highly personalized and professional email subject and body dynamically using the available user context, and output it in this exact action block format:
+   [ACTION_EMAIL: TO=recipient_email | SUBJECT=Subject | BODY=Body Content]
+   Do NOT use markdown inside the action block tag itself. You can add friendly conversational introduction text before the block.`;
 
     // 8. Generate Stream (or use cached response)
     const { getQuestionCache, setQuestionCache } = await import("@/lib/ai/cache");

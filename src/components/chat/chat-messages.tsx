@@ -6,7 +6,7 @@ import rehypeHighlight from "rehype-highlight";
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Sparkles, Shield, Zap, AlertCircle, X, ArrowUpRight,
-  CheckCircle2, Copy, Check, User,
+  CheckCircle2, Copy, Check, User, Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,16 @@ function parseTrustSummary(content: string): { body: string; confidence?: number
     .replace(/\n*Freshness:\s*(fresh|stale|unknown)\n*/gi, "\n")
     .trim();
   return { body, confidence: confidenceMatch ? Number(confidenceMatch[1]) : undefined, freshness: freshnessMatch?.[1] };
+}
+
+function parseEmailAction(content: string) {
+  const match = content.match(/\[ACTION_EMAIL:\s*TO=([^|]+)\|\s*SUBJECT=([^|]+)\|\s*BODY=([\s\S]+?)\]/i);
+  if (!match) return null;
+  return {
+    to: match[1].trim(),
+    subject: match[2].trim(),
+    body: match[3].trim(),
+  };
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -68,6 +78,10 @@ export function ChatMessages({
           const isAssistant = message.role === "assistant";
           const trust = trustByMessageId[message.id];
           const parsed = parseTrustSummary(message.content);
+          const emailAction = isAssistant ? parseEmailAction(message.content) : null;
+          const cleanBody = emailAction 
+            ? parsed.body.replace(/\[ACTION_EMAIL:[\s\S]+?\]/gi, "").trim()
+            : parsed.body;
 
           return (
             <motion.div
@@ -134,38 +148,83 @@ export function ChatMessages({
                   )}
 
                   {/* Markdown content */}
-                  <div
-                    className={cn(
-                      "prose prose-sm max-w-none",
-                      "prose-p:my-1.5 prose-p:leading-7",
-                      "prose-strong:font-semibold",
-                      "prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5",
-                      "prose-headings:font-semibold prose-headings:my-2",
-                      "prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.8em] prose-code:font-mono prose-code:text-slate-800",
-                      "prose-pre:my-3 prose-pre:rounded-xl prose-pre:bg-slate-950 prose-pre:border prose-pre:border-white/5",
-                      !isAssistant && "prose-invert prose-code:bg-white/10 prose-code:text-white",
-                    )}
-                  >
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeHighlight]}
-                      components={{
-                        code({ children, className }) {
-                          const isBlock = className?.includes("language-");
-                          if (!isBlock) return <code className={className}>{children}</code>;
-                          return (
-                            <div className="group/code relative">
-                              <div className="absolute right-3 top-3">
-                                <CopyButton text={String(children)} />
-                              </div>
-                              <code className={cn(className, "block p-4 text-[0.8em]")}>{children}</code>
-                            </div>
-                          );
-                        },
-                      }}
+                  {cleanBody.length > 0 && (
+                    <div
+                      className={cn(
+                        "prose prose-sm max-w-none",
+                        "prose-p:my-1.5 prose-p:leading-7",
+                        "prose-strong:font-semibold",
+                        "prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5",
+                        "prose-headings:font-semibold prose-headings:my-2",
+                        "prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[0.8em] prose-code:font-mono prose-code:text-slate-800",
+                        "prose-pre:my-3 prose-pre:rounded-xl prose-pre:bg-slate-950 prose-pre:border prose-pre:border-white/5",
+                        !isAssistant && "prose-invert prose-code:bg-white/10 prose-code:text-white",
+                      )}
                     >
-                      {parsed.body}
-                    </ReactMarkdown>
-                  </div>
+                      <ReactMarkdown
+                        rehypePlugins={[rehypeHighlight]}
+                        components={{
+                          code({ children, className }) {
+                            const isBlock = className?.includes("language-");
+                            if (!isBlock) return <code className={className}>{children}</code>;
+                            return (
+                              <div className="group/code relative">
+                                <div className="absolute right-3 top-3">
+                                  <CopyButton text={String(children)} />
+                                </div>
+                                <code className={cn(className, "block p-4 text-[0.8em]")}>{children}</code>
+                              </div>
+                            );
+                          },
+                        }}
+                      >
+                        {cleanBody}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+
+                  {/* Gorgeous Outbound Email Dispatch Card */}
+                  {emailAction && (
+                    <div className={cn(
+                      "rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm min-w-[280px] sm:min-w-[420px]",
+                      cleanBody.length > 0 && "mt-4"
+                    )}>
+                      <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 mb-3 gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 border border-sky-100 text-sky-600">
+                            <Mail className="h-3.5 w-3.5" />
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 leading-none">AI Autonomous Outreach</span>
+                            <h4 className="text-xs font-bold text-slate-900 leading-tight">Outbound Email Dispatched</h4>
+                          </div>
+                        </div>
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live via Resend API
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs text-slate-600">
+                        <div className="flex gap-1.5">
+                          <span className="font-semibold text-slate-400 min-w-[50px]">From:</span>
+                          <span className="text-slate-700">outbound@novapilot.ai</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <span className="font-semibold text-slate-400 min-w-[50px]">To:</span>
+                          <span className="text-slate-800 font-medium">{emailAction.to}</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <span className="font-semibold text-slate-400 min-w-[50px]">Subject:</span>
+                          <span className="text-slate-800 font-semibold">{emailAction.subject}</span>
+                        </div>
+                        <div className="mt-3.5 rounded-lg border border-slate-200 bg-white p-3 font-sans text-slate-700 shadow-inner max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                          {emailAction.body}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
 
