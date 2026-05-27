@@ -84,6 +84,7 @@ async function syncStripeMetrics(organizationId: string) {
 export async function runConnectorSync(formData: FormData) {
   const connectorId = String(formData.get("connector_id") ?? "");
   const provider = String(formData.get("provider") ?? "");
+  const spreadsheetUrl = String(formData.get("spreadsheet_url") ?? "").trim();
   const membership = await getCurrentMembership();
   if (!membership) redirect("/login");
   if (!connectorId || !provider) redirect("/dashboard/connectors?error=Invalid connector sync request");
@@ -100,6 +101,26 @@ export async function runConnectorSync(formData: FormData) {
   const connectorIndex = (allConnectors ?? []).findIndex(c => c.id === connectorId);
   if (connectorIndex >= limits.maxConnectors) {
     redirect("/dashboard/connectors?error=This connector is locked on your current plan. Please upgrade.");
+  }
+
+  // Update spreadsheet URL in metadata if modified
+  if (provider.toLowerCase() === "google_sheets" && spreadsheetUrl) {
+    const { data: conn } = await supabase
+      .from("data_connections")
+      .select("metadata")
+      .eq("id", connectorId)
+      .maybeSingle();
+    
+    const currentMetadata = conn?.metadata || {};
+    await supabase
+      .from("data_connections")
+      .update({
+        metadata: {
+          ...currentMetadata,
+          spreadsheet_url: spreadsheetUrl
+        }
+      })
+      .eq("id", connectorId);
   }
 
   const idempotencyKey = crypto

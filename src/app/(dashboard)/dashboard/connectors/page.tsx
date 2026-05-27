@@ -52,6 +52,7 @@ export default async function ConnectorsPage() {
     provider: string;
     status: "connected" | "syncing" | "error" | "disconnected";
     last_synced_at: string | null;
+    metadata?: any;
   }> = [];
 
   const limits = await getPlanLimitsForOrganization();
@@ -59,7 +60,7 @@ export default async function ConnectorsPage() {
   if (membership) {
     const { data } = await supabase
       .from("data_connections")
-      .select("id, provider, status, last_synced_at")
+      .select("id, provider, status, last_synced_at, metadata")
       .eq("organization_id", membership.organizationId)
       .order("provider");
     connectors = (data ?? []) as typeof connectors;
@@ -208,7 +209,16 @@ export default async function ConnectorsPage() {
                         Upgrade <ArrowUpRight className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <form action={runConnectorSync}>
+                      <form action={runConnectorSync} className="flex items-center gap-3">
+                        {connector.provider.toLowerCase() === "google_sheets" && (
+                          <input
+                            type="text"
+                            name="spreadsheet_url"
+                            placeholder="Enter Google Sheet URL (Public)..."
+                            defaultValue={connector.metadata?.spreadsheet_url || ""}
+                            className="h-10 px-3 w-64 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all placeholder:text-slate-400"
+                          />
+                        )}
                         <input type="hidden" name="connector_id" value={connector.id} />
                         <input type="hidden" name="provider" value={connector.provider} />
                         <FormSubmitButton
