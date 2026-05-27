@@ -53,27 +53,12 @@ export function ChatWorkspace({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Client-side cache to enable instant, zero-delay answers for duplicate questions
-  const clientCache = useRef<Record<string, string>>({});
-
-  // Sync state with server props when threadId changes and populate client cache
+  // Sync state with server props when threadId changes
   useEffect(() => {
     setMessages(initialMessages);
     setThreadId(initialThreadId);
     setTrustByMessageId(initialTrustByMessageId);
     setError(errorParam);
-
-    // Build client-side cache from the loaded chat messages
-    const cache: Record<string, string> = {};
-    for (let i = 0; i < initialMessages.length - 1; i++) {
-      const msg = initialMessages[i];
-      const nextMsg = initialMessages[i + 1];
-      if (msg.role === "user" && nextMsg.role === "assistant") {
-        const cleanKey = msg.content.trim().toLowerCase().replace(/\s+/g, ' ');
-        cache[cleanKey] = nextMsg.content;
-      }
-    }
-    clientCache.current = cache;
   }, [initialMessages, initialThreadId, initialTrustByMessageId, errorParam]);
 
   // Auto-scroll when messages change or while streaming
@@ -103,42 +88,8 @@ export function ChatWorkspace({
     }
     setError(undefined);
 
-    const cleanQuery = userMessageContent.toLowerCase().replace(/\s+/g, ' ');
-    const localCachedAnswer = clientCache.current[cleanQuery];
-
     const userMsgId = `temp-user-${Date.now()}`;
     const assistantMsgId = `temp-assistant-${Date.now()}`;
-
-    // CLIENT CACHE HIT: Render answer instantly, completely bypassing the "Thinking..." spinner
-    if (localCachedAnswer) {
-      setMessages((prev) => [
-        ...prev,
-        { id: userMsgId, role: "user", content: userMessageContent },
-        { id: assistantMsgId, role: "assistant", content: localCachedAnswer }
-      ]);
-
-      setTrustByMessageId((prev) => ({
-        ...prev,
-        [assistantMsgId]: {
-          confidence: 95,
-          freshness: "fresh",
-          citations: [
-            { provider: "internal", sourceRef: "grounded_analytics", freshnessAt: new Date().toISOString() }
-          ]
-        }
-      }));
-
-      // Quietly sync database in the background to ensure interaction history is saved
-      fetch("/api/chat/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userMessageContent, threadId })
-      }).then(() => {
-        router.refresh();
-      }).catch(err => console.error("[QUIET SYNC ERROR]:", err));
-
-      return;
-    }
 
     // 1. Add User Message & Assistant typing placeholder to local state
     const newMessages: ChatMessage[] = [
@@ -208,8 +159,7 @@ export function ChatWorkspace({
         }
       }));
 
-      // Cache it locally so subsequent duplicate requests in this session are 0ms instant
-      clientCache.current[cleanQuery] = assistantText;
+      // Caching disabled. Proceeding directly.
 
       setIsStreaming(false);
 

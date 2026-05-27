@@ -62,9 +62,6 @@ export async function sendMessage(formData: FormData) {
   );
 
   // 3. AI Generation Logic
-  const { getQuestionCache, setQuestionCache } = await import("@/lib/ai/cache");
-  const cachedAnswer = await getQuestionCache(membership.organizationId, content, adminClient);
-
   let assistantContent = "I don't have enough data to answer that accurately. Please connect a data source.";
   let inputTokens = 0;
   let outputTokens = 0;
@@ -72,11 +69,7 @@ export async function sendMessage(formData: FormData) {
   let citations: any[] = [];
   let isFromCache = false;
 
-  if (cachedAnswer) {
-    assistantContent = cachedAnswer;
-    isFromCache = true;
-  } else {
-    try {
+  try {
       const { searchKnowledge } = await import("@/lib/ai/vector");
       const { aiRouter } = await import("@/lib/ai/router");
 
@@ -141,13 +134,10 @@ Rules:
         freshnessAt: k.metadata.last_synced_at || null
       }));
 
-      // Cache the newly generated answer
-      setQuestionCache(membership.organizationId, content, assistantContent);
     } catch (error) {
       console.error("[CHAT] AI Error:", error);
       assistantContent = "The intelligence engine encountered an error. Please try again in a moment.";
     }
-  }
 
   // 4. Save AI Response
   const finalContent = assistantContent;

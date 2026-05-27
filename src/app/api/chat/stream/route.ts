@@ -144,20 +144,9 @@ Rules:
    [ACTION_EMAIL: TO=recipient_email | SUBJECT=Subject | BODY=Body Content]
    Do NOT use markdown inside the action block tag itself. You can add friendly conversational introduction text before the block.`;
 
-    // 8. Generate Stream (or use cached response)
-    const ENABLE_AI_CACHE = false; // Set to false to disable caching completely for live/real-time answers
-    let cachedAnswer: string | null = null;
-    
-    if (ENABLE_AI_CACHE) {
-      const { getQuestionCache } = await import("@/lib/ai/cache");
-      cachedAnswer = await getQuestionCache(membership.organizationId, content, adminClient);
-    }
-
-    let reader: ReadableStreamDefaultReader<any> | null = null;
-    if (!cachedAnswer) {
-      const rawStream = await aiRouter.generateStream(promptText, "PREMIUM");
-      reader = rawStream.getReader();
-    }
+    // 8. Generate Stream
+    const rawStream = await aiRouter.generateStream(promptText, "PREMIUM");
+    const reader = rawStream.getReader();
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
 
@@ -169,96 +158,6 @@ Rules:
 
         // First, enqueue metadata about the thread ID so the client knows it (especially for brand new chats)
         controller.enqueue(encoder.encode(`__THREAD_ID__:${threadId}\n`));
-
-        if (cachedAnswer) {
-          try {
-            // Give client time to consume the thread ID first
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            // Stream the cached answer back in chunks with a tiny delay to simulate ultra-fast typing
-            const chunkSize = 32;
-            for (let i = 0; i < cachedAnswer.length; i += chunkSize) {
-              controller.enqueue(encoder.encode(cachedAnswer.slice(i, i + chunkSize)));
-              await new Promise(resolve => setTimeout(resolve, 10));
-            }
-            controller.close();
-
-            // Asynchronously log the cached response in thread history
-            const { data: aiQuery } = await adminClient
-              .from("ai_queries")
-              .insert({
-                organization_id: membership.organizationId,
-                user_id: membership.userId,
-                thread_id: threadId,
-                query_text: content,
-                answer_text: cachedAnswer,
-                confidence_score: 95,
-                freshness_status: "fresh"
-              })
-              .select()
-              .single();
-
-            await adminClient.from("chat_messages").insert({
-              thread_id: threadId,
-              organization_id: membership.organizationId,
-              role: "assistant",
-              content: cachedAnswer,
-            });
-
-            if (aiQuery && (freshSources.length > 0 || knowledge.length > 0)) {
-              const citations = knowledge.map(k => ({
-                provider: k.metadata.source_type || 'knowledge',
-                sourceRef: k.metadata.source_id || 'internal',
-                freshnessAt: k.metadata.last_synced_at || null
-              }));
-
-              const allCitations = [
-                ...freshSources.map(s => ({
-                  ai_query_id: aiQuery.id,
-                  organization_id: membership.organizationId,
-                  provider: s.provider,
-                  source_ref: "latest_sync",
-                  freshness_at: s.last_synced_at
-                })),
-                ...citations.map(c => ({
-                  ai_query_id: aiQuery.id,
-                  organization_id: membership.organizationId,
-                  provider: c.provider,
-                  source_ref: c.sourceRef,
-                  freshness_at: c.freshnessAt
-                }))
-              ];
-              await adminClient.from("ai_query_citations").insert(allCitations);
-            }
-
-            // Live Resend Email Dispatch for Cache hits
-            const emailMatch = cachedAnswer.match(/\[ACTION_EMAIL:\s*TO=([^|]+)\|\s*SUBJECT=([^|]+)\|\s*BODY=([\s\S]+?)\]/i);
-            if (emailMatch) {
-              const toEmail = emailMatch[1].trim();
-              const mailSubject = emailMatch[2].trim();
-              const mailBody = emailMatch[3].trim();
-
-              if (process.env.RESEND_API_KEY) {
-                try {
-                  const resend = new Resend(process.env.RESEND_API_KEY);
-                  await resend.emails.send({
-                    from: "NovaPilot AI <onboarding@resend.dev>",
-                    to: toEmail,
-                    subject: mailSubject,
-                    text: mailBody,
-                  });
-                  console.log(`[RESEND CACHE SUCCESS]: Outbound email sent successfully to ${toEmail}`);
-                } catch (resendError) {
-                  console.error("[RESEND CACHE DISPATCH ERROR]:", resendError);
-                }
-              }
-            }
-
-          } catch (cachedLogError) {
-            console.error("[STREAM CHAT] Failed to log cached response:", cachedLogError);
-          }
-          return;
-        }
 
         if (!reader) {
           controller.close();
@@ -319,11 +218,7 @@ Rules:
 
           // 10. Async Database Logging on Stream Completion
           if (fullResponseText.trim()) {
-            // Cache the newly generated answer
-            if (ENABLE_AI_CACHE) {
-              const { setQuestionCache } = await import("@/lib/ai/cache");
-              setQuestionCache(membership.organizationId, content, fullResponseText);
-            }
+            // Caching disabled. Database logging proceeding directly.
 
             const { data: aiQuery } = await adminClient
               .from("ai_queries")
