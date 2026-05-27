@@ -18,6 +18,26 @@ export class MockProvider implements AIProvider {
       userQuery = userQuery.slice("user current message:".length).trim();
     }
     const query = userQuery.toLowerCase();
+    const fullPromptLower = prompt.toLowerCase();
+    
+    // Check if the current message is a short, generic query or conversational reference
+    const isGenericQuery = query.length < 15 && (
+      query.includes("btao") || 
+      query.includes("tell") || 
+      query.includes("show") || 
+      query.includes("what") || 
+      query.includes("explain") || 
+      query.includes("again") || 
+      query.includes("now") || 
+      query.includes("wahi") || 
+      query.includes("same") || 
+      query.includes("kitni") ||
+      query.trim() === "ab" ||
+      query.trim() === "ab btao"
+    );
+
+    const hasSheetContext = fullPromptLower.includes("sheet") || fullPromptLower.includes("spreadsheet") || fullPromptLower.includes("google_sheets");
+    const hasHubSpotContext = fullPromptLower.includes("hubspot") || fullPromptLower.includes("contact");
 
     // Query dynamic contacts from HubSpot connector in Supabase
     let contacts: any[] = [];
@@ -106,7 +126,7 @@ I scanned your connected HubSpot CRM for contacts matching your query:
         ).join("\n\n") + 
         `\n\n*(Grounding verified via active HubSpot OAuth connection)*`;
     }
-    else if ((query.includes("email") || query.includes("contact")) && contacts.length > 0) {
+    else if (((query.includes("email") || query.includes("contact")) && contacts.length > 0) || (isGenericQuery && hasHubSpotContext && contacts.length > 0)) {
       mockResponse = `I scanned your connected **HubSpot CRM** and found **${contacts.length} contact(s)**:\n\n` +
         contacts.map((c: any) => 
           `* **${c.firstName} ${c.lastName}** (\`${c.email || "No Email"}\`)`
@@ -130,7 +150,7 @@ I scanned your connected HubSpot CRM for contacts matching your query:
     else if (query.includes("user") || query.includes("member") || query.includes("team") || query.includes("people")) {
       mockResponse = "Your active workspace currently contains **2 onboarded team members** (including Dinesh Sharma).\n\n**Team Status:**\n* **Database Replication:** Stable (Health Score: 96/100)\n* **Role Synchronization:** Active (Super Admin role mapped)\n* **Recent Invites:** None pending.";
     }
-    else if (query.includes("sheet") || query.includes("google sheet") || query.includes("spreadsheet")) {
+    else if (query.includes("sheet") || query.includes("google sheet") || query.includes("spreadsheet") || (isGenericQuery && hasSheetContext)) {
       if (sheetsData && sheetsData.rows && sheetsData.rows.length > 0) {
         const spreadsheetName = sheetsData.spreadsheet_name || "Google Sheet";
         const headers = sheetsData.headers || Object.keys(sheetsData.rows[0]);
