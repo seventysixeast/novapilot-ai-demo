@@ -525,29 +525,17 @@ export function ChatWorkspace({
                   Cancel
                 </button>
                 <form
-                  action={async (formData) => {
-                    setIsDeleting(true);
-                    try {
-                      await deleteThread(formData);
-                      setThreadToDelete(null);
-                    } catch (err) {
-                      console.error("Failed to delete thread:", err);
-                    } finally {
-                      setIsDeleting(false);
-                    }
+                  action={deleteThread}
+                  onSubmit={() => {
+                    setThreadToDelete(null);
                   }}
                 >
                   <input type="hidden" name="thread_id" value={threadToDelete.id} />
                   <button
                     type="submit"
-                    disabled={isDeleting}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-rose-600/10 transition-all hover:bg-rose-700 active:scale-95 disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-rose-600/10 transition-all hover:bg-rose-700 active:scale-95"
                   >
-                    {isDeleting ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      "Delete"
-                    )}
+                    Delete
                   </button>
                 </form>
               </div>
