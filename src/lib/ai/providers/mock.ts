@@ -36,6 +36,23 @@ export class MockProvider implements AIProvider {
       console.error("Failed to fetch dynamic contacts in MockProvider:", e);
     }
 
+    // Query dynamic Google Sheets from Supabase
+    let sheetsData: any = null;
+    try {
+      const supabase = await createClient();
+      const { data: connectors } = await supabase
+        .from("data_connections")
+        .select("metadata")
+        .eq("provider", "google_sheets")
+        .eq("status", "connected");
+      
+      if (connectors && connectors.length > 0) {
+        sheetsData = connectors[0].metadata;
+      }
+    } catch (e) {
+      console.error("Failed to fetch dynamic sheets in MockProvider:", e);
+    }
+
     // Dynamic HubSpot Contact Search
     let matchedContacts: any[] = [];
     if (contacts.length > 0) {
@@ -114,19 +131,62 @@ I scanned your connected HubSpot CRM for contacts matching your query:
       mockResponse = "Your active workspace currently contains **2 onboarded team members** (including Dinesh Sharma).\n\n**Team Status:**\n* **Database Replication:** Stable (Health Score: 96/100)\n* **Role Synchronization:** Active (Super Admin role mapped)\n* **Recent Invites:** None pending.";
     }
     else if (query.includes("sheet") || query.includes("google sheet") || query.includes("spreadsheet")) {
-      mockResponse = `I scanned your connected **Google Sheets** connector and found the spreadsheet **"Q2 Sales Leads & Campaign Tracker"**:\n\n` +
-        `| Lead Name | Email | Deal Value | Sales Rep | Status |\n` +
-        `| :--- | :--- | :--- | :--- | :--- |\n` +
-        `| **Amit Rathor** | \`novapilot.test@outlook.com\` | $12,500 | Chanchal Rathor | Closed Won |\n` +
-        `| **Sarah Connor** | \`sarah.c@skyline.io\` | $4,500 | Dinesh Sharma | In Discussion |\n` +
-        `| **Bruce Wayne** | \`bruce@waynecorp.com\` | $85,000 | Chanchal Rathor | Proposal Sent |\n` +
-        `| **Peter Parker** | \`peter.p@dailybugle.com\` | $1,500 | Dinesh Sharma | Contacted |\n` +
-        `| **Tony Stark** | \`tony@starkindustries.com\` | $150,000 | Chanchal Rathor | Closed Won |\n\n` +
-        `**Key Analytics from Sheets:**\n` +
-        `* **Total Deal Value in Pipeline:** $253,500\n` +
-        `* **Top Performing Rep:** Chanchal Rathor ($247,500 across 3 deals)\n` +
-        `* **Conversion Rate Range:** 40% to 99%\n\n` +
-        `*(Grounding verified via active Google Sheets live integration)*`;
+      if (sheetsData && sheetsData.rows && sheetsData.rows.length > 0) {
+        const spreadsheetName = sheetsData.spreadsheet_name || "Google Sheet";
+        const headers = sheetsData.headers || Object.keys(sheetsData.rows[0]);
+        const rows = sheetsData.rows;
+
+        // Build Markdown Table Header
+        let tableMarkdown = `| ${headers.join(" | ")} |\n`;
+        tableMarkdown += `| ${headers.map(() => ":---").join(" | ")} |\n`;
+
+        // Build Markdown Table Rows
+        rows.forEach((r: any) => {
+          const rowValues = headers.map((h: string) => {
+            const val = r[h];
+            return val !== null && val !== undefined ? String(val) : "";
+          });
+          tableMarkdown += `| ${rowValues.join(" | ")} |\n`;
+        });
+
+        // Compute dynamic stats
+        let totalDealValue = 0;
+        let closedWonCount = 0;
+        rows.forEach((r: any) => {
+          const keys = Object.keys(r);
+          const dealKey = keys.find(k => k.toLowerCase().includes("deal") || k.toLowerCase().includes("value") || k.toLowerCase().includes("price") || k.toLowerCase().includes("amount"));
+          if (dealKey) {
+            const val = parseFloat(String(r[dealKey]).replace(/[$,]/g, ""));
+            if (!isNaN(val)) totalDealValue += val;
+          }
+
+          const statusKey = keys.find(k => k.toLowerCase().includes("status") || k.toLowerCase().includes("state"));
+          if (statusKey && String(r[statusKey]).toLowerCase().includes("won")) {
+            closedWonCount++;
+          }
+        });
+
+        mockResponse = `I scanned your connected **Google Sheets** connector and found the spreadsheet **"${spreadsheetName}"**:\n\n${tableMarkdown}\n` +
+          `**Key Analytics from Sheets (Dynamic Live Sync):**\n` +
+          `* **Total Rows Synced:** ${rows.length}\n` +
+          (totalDealValue > 0 ? `* **Total Value in Sheet:** $${totalDealValue.toLocaleString()}\n` : "") +
+          (closedWonCount > 0 ? `* **Successful (Closed Won) Deals:** ${closedWonCount}\n` : "") +
+          `\n*(Grounding verified via active Google Sheets live integration)*`;
+      } else {
+        mockResponse = `I scanned your connected **Google Sheets** connector and found the spreadsheet **"Q2 Sales Leads & Campaign Tracker"**:\n\n` +
+          `| Lead Name | Email | Deal Value | Sales Rep | Status |\n` +
+          `| :--- | :--- | :--- | :--- | :--- |\n` +
+          `| **Amit Rathor** | \`novapilot.test@outlook.com\` | $12,500 | Chanchal Rathor | Closed Won |\n` +
+          `| **Sarah Connor** | \`sarah.c@skyline.io\` | $4,500 | Dinesh Sharma | In Discussion |\n` +
+          `| **Bruce Wayne** | \`bruce@waynecorp.com\` | $85,000 | Chanchal Rathor | Proposal Sent |\n` +
+          `| **Peter Parker** | \`peter.p@dailybugle.com\` | $1,500 | Dinesh Sharma | Contacted |\n` +
+          `| **Tony Stark** | \`tony@starkindustries.com\` | $150,000 | Chanchal Rathor | Closed Won |\n\n` +
+          `**Key Analytics from Sheets:**\n` +
+          `* **Total Deal Value in Pipeline:** $253,500\n` +
+          `* **Top Performing Rep:** Chanchal Rathor ($247,500 across 3 deals)\n` +
+          `* **Conversion Rate Range:** 40% to 99%\n\n` +
+          `*(Grounding verified via active Google Sheets live integration)*`;
+      }
     }
     else if (query.includes("source") || query.includes("connector") || query.includes("stripe") || query.includes("hubspot")) {
       mockResponse = "I am currently connected to four active data pipelines:\n1. 💳 **Stripe:** Tracking subscription payments and invoicing status.\n2. 🤝 **HubSpot:** Synchronizing sales pipelines and CRM contacts.\n3. 📈 **Google Analytics (GA4):** Grounding live traffic, session volume, and conversions.\n4. 📊 **Google Sheets:** Syncing custom worksheets and tracking sheets.\n\nAll connectors are fully authenticated and grounding my cognitive synthesis.";
