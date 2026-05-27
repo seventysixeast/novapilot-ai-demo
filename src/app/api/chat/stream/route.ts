@@ -145,8 +145,13 @@ Rules:
    Do NOT use markdown inside the action block tag itself. You can add friendly conversational introduction text before the block.`;
 
     // 8. Generate Stream (or use cached response)
-    const { getQuestionCache, setQuestionCache } = await import("@/lib/ai/cache");
-    const cachedAnswer = await getQuestionCache(membership.organizationId, content, adminClient);
+    const ENABLE_AI_CACHE = false; // Set to false to disable caching completely for live/real-time answers
+    let cachedAnswer: string | null = null;
+    
+    if (ENABLE_AI_CACHE) {
+      const { getQuestionCache } = await import("@/lib/ai/cache");
+      cachedAnswer = await getQuestionCache(membership.organizationId, content, adminClient);
+    }
 
     let reader: ReadableStreamDefaultReader<any> | null = null;
     if (!cachedAnswer) {
@@ -315,7 +320,10 @@ Rules:
           // 10. Async Database Logging on Stream Completion
           if (fullResponseText.trim()) {
             // Cache the newly generated answer
-            setQuestionCache(membership.organizationId, content, fullResponseText);
+            if (ENABLE_AI_CACHE) {
+              const { setQuestionCache } = await import("@/lib/ai/cache");
+              setQuestionCache(membership.organizationId, content, fullResponseText);
+            }
 
             const { data: aiQuery } = await adminClient
               .from("ai_queries")
