@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
@@ -162,8 +163,30 @@ export function ChatMessages({
                       )}
                     >
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeHighlight]}
                         components={{
+                          table({ children }) {
+                            return (
+                              <div className="my-4 w-full overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+                                <table className="w-full border-collapse text-left text-xs text-slate-600">
+                                  {children}
+                                </table>
+                              </div>
+                            );
+                          },
+                          thead({ children }) {
+                            return <thead className="bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">{children}</thead>;
+                          },
+                          th({ children }) {
+                            return <th className="px-4 py-3 font-semibold text-slate-700">{children}</th>;
+                          },
+                          td({ children }) {
+                            return <td className="px-4 py-3 border-b border-slate-100 last:border-b-0 whitespace-nowrap">{children}</td>;
+                          },
+                          tr({ children }) {
+                            return <tr className="hover:bg-slate-50/40 transition-colors last:border-0">{children}</tr>;
+                          },
                           code({ children, className }) {
                             const isBlock = className?.includes("language-");
                             if (!isBlock) return <code className={className}>{children}</code>;
