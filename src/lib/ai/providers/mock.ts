@@ -217,15 +217,17 @@ I scanned your connected HubSpot CRM for contacts matching your query:
   async generateStream(prompt: string, model = 'mock-model'): Promise<ReadableStream> {
     const encoder = new TextEncoder();
     const completion = await this.generateCompletion(prompt, model);
-    const words = completion.text.split(" ");
+    const chunks = completion.text.split(/(\s+)/);
     
     return new ReadableStream({
       async start(controller) {
-        for (let i = 0; i < words.length; i++) {
-          const chunk = words[i] + (i === words.length - 1 ? "" : " ");
-          controller.enqueue(encoder.encode(chunk));
-          // Natural 25ms word interval for a highly premium, fluid user experience
-          await new Promise(resolve => setTimeout(resolve, 25));
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          if (chunk) {
+            controller.enqueue(encoder.encode(chunk));
+            // Premium, fluid stream typing speed
+            await new Promise(resolve => setTimeout(resolve, 8));
+          }
         }
         controller.close();
       },
