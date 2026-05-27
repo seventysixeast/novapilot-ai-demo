@@ -13,7 +13,10 @@ export class MockProvider implements AIProvider {
     let mockResponse = "I have scanned your workspace. Operating in localized intelligence mode. You can fully test all dashboard telemetry, connections, and reports. To unlock broad external knowledge, please ensure a valid API key is configured in your environment settings.";
 
     // Extract the original user query from the prompt by splitting at newlines to ignore rules and telemetry context
-    const userQuery = (prompt.split("\n\n")[0] || prompt.split("\n")[0] || "").trim();
+    let userQuery = (prompt.split("\n\n")[0] || prompt.split("\n")[0] || "").trim();
+    if (userQuery.toLowerCase().startsWith("user current message:")) {
+      userQuery = userQuery.slice("user current message:".length).trim();
+    }
     const query = userQuery.toLowerCase();
 
     // Query dynamic contacts from HubSpot connector in Supabase
