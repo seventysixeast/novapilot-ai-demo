@@ -104,6 +104,78 @@ const INITIAL_SEARCH_STATE: KnowledgeSemanticSearchState = {
   citations: [],
 };
 
+const TEMPLATES: Record<string, string> = {
+  "Executive summary": `# Executive Summary: [Topic Name]
+
+## 📌 Objective
+Brief description of the goals and purpose of this document.
+
+## 🔑 Key Takeaways
+- Takeaway 1: [Core insight/decision]
+- Takeaway 2: [Core insight/decision]
+- Takeaway 3: [Core insight/decision]
+
+## 📊 Metrics & Impact
+Key metrics, timelines, and expected results.`,
+
+  "Customer feedback": `# Customer Feedback: [Customer/Company Name]
+
+## 🗣️ User Profile
+- Role: [e.g., Product Manager, VP of Sales]
+- Account Tier: [e.g., Enterprise, Pro]
+- Industry: [e.g., FinTech, SaaS]
+
+## 🎯 Pain Points & Requests
+1. [Pain Point 1]: Description, frequency, and severity.
+2. [Pain Point 2]: Description, frequency, and severity.
+
+## 💡 Proposed Solutions / Action Items
+- [ ] Action item 1
+- [ ] Action item 2`,
+
+  "Meeting notes": `# Meeting Notes: [Project/Team Name]
+
+## 📅 Details
+- Date: [Date]
+- Attendees: [Name 1], [Name 2]
+
+## 💬 Agenda & Discussion
+- [Topic A]: Key notes, arguments, and decisions.
+- [Topic B]: Key notes, arguments, and decisions.
+
+## 🚀 Next Steps & Action Items
+- [ ] @[Name] to do [Task] by [Date]
+- [ ] @[Name] to do [Task] by [Date]`,
+
+  "Runbook": `# Runbook: [Process Name]
+
+## 📝 Overview
+Step-by-step operational guide for [Process].
+
+## 🛠️ Prerequisites
+- Dependency 1
+- Dependency 2
+
+## 🚀 Steps to Execute
+1. **Step 1**: Detailed explanation.
+2. **Step 2**: Detailed explanation.
+3. **Step 3**: Detailed explanation.
+
+## 🚨 Troubleshooting & Escalation
+Contact @[Name] in case of issues.`,
+
+  "FAQ": `# Frequently Asked Questions: [Topic Name]
+
+### Q1: [Question 1]?
+**A1**: [Answer 1]
+
+### Q2: [Question 2]?
+**A2**: [Answer 2]
+
+### Q3: [Question 3]?
+**A3**: [Answer 3]`
+};
+
 export function DocumentsWorkspace({
   documents,
   collections,
@@ -118,6 +190,13 @@ export function DocumentsWorkspace({
   const [searchQuery, setSearchQuery] = useState("");
   const [uploadState, uploadAction] = useActionState(ingestDocumentAction, INITIAL_UPLOAD_STATE);
   const [searchState, searchAction, searchPending] = useActionState(runSemanticSearchAction, INITIAL_SEARCH_STATE);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [docTitle, setDocTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+
+  const wordCount = noteContent.trim() ? noteContent.trim().split(/\s+/).length : 0;
+  const charCount = noteContent.length;
 
   const activeDocumentId = selectedDocumentId;
 
@@ -271,6 +350,8 @@ export function DocumentsWorkspace({
                       label="Document title"
                       name="title"
                       placeholder="Q2 Product Spec, Research Memo, Customer Notes..."
+                      value={docTitle}
+                      onChange={(e) => setDocTitle(e.target.value)}
                     />
                     <div className="grid gap-4 md:grid-cols-2">
                       <TextField
@@ -306,45 +387,94 @@ export function DocumentsWorkspace({
               </div>
 
               {ingestMode === "upload" ? (
-                <label className="group block cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/40 p-8 text-center transition-all duration-200 hover:border-sky-400 hover:bg-sky-50/40">
-                  <input type="file" name="file" className="hidden" accept=".pdf,.docx,.txt,.md,.markdown,.csv" />
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-sky-500 shadow-sm ring-1 ring-slate-100 transition-transform group-hover:scale-110">
-                    <Upload className="h-6 w-6" />
+                <div className="space-y-4">
+                  <div className={cn(selectedFile ? "block" : "hidden")}>
+                    <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/40 to-white p-6 shadow-sm">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-600 shadow-sm">
+                            <FileText className="h-6 w-6" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">{selectedFile?.name}</p>
+                            <p className="text-xs text-slate-400">{selectedFile ? (selectedFile.size / 1024).toFixed(1) : 0} KB</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            const fileInput = document.querySelector<HTMLInputElement>("input[name='file']");
+                            if (fileInput) fileInput.value = "";
+                          }}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-500 transition-all hover:bg-rose-50 hover:border-rose-200 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm font-semibold text-slate-900">Drop files here or click to browse</p>
-                  <p className="mt-1.5 text-xs text-slate-500">PDF, DOCX, TXT, Markdown, and CSV — parsed and indexed automatically</p>
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    {["Upload", "Parse", "Chunk", "Embed", "Index"].map((step, i) => (
-                      <span key={step} className="flex items-center gap-1.5">
-                        <span className="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm">{step}</span>
-                        {i < 4 && <span className="text-slate-300 text-xs">›</span>}
-                      </span>
-                    ))}
-                  </div>
-                </label>
+                  
+                  <label className={cn("group cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/40 p-8 text-center transition-all duration-200 hover:border-sky-400 hover:bg-sky-50/40", selectedFile ? "hidden" : "block")}>
+                    <input
+                      type="file"
+                      name="file"
+                      className="hidden"
+                      accept=".pdf,.docx,.txt,.md,.markdown,.csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setSelectedFile(file);
+                        if (file && !docTitle) {
+                          const baseName = file.name.replace(/\.[^.]+$/, "");
+                          setDocTitle(baseName);
+                        }
+                      }}
+                    />
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-sky-500 shadow-sm ring-1 ring-slate-100 transition-transform group-hover:scale-110">
+                      <Upload className="h-6 w-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900">Drop files here or click to browse</p>
+                    <p className="mt-1.5 text-xs text-slate-500">PDF, DOCX, TXT, Markdown, and CSV — parsed and indexed automatically</p>
+                    <div className="mt-5 flex flex-wrap justify-center gap-2">
+                      {["Upload", "Parse", "Chunk", "Embed", "Index"].map((step, i) => (
+                        <span key={step} className="flex items-center gap-1.5">
+                          <span className="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm">{step}</span>
+                          {i < 4 && <span className="text-slate-300 text-xs">›</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </label>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  <textarea
-                    name="content"
-                    rows={8}
-                    placeholder={
-                      ingestMode === "note"
-                        ? "Write a note, meeting summary, decision log, or operating memo..."
-                        : "Paste plain text, notes, a research excerpt, CSV rows, or any workspace content..."
-                    }
-                    className="w-full rounded-[2rem] border border-slate-200 bg-white px-5 py-4 text-sm leading-6 text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-50"
-                  />
+                  <div className="relative">
+                    <textarea
+                      name="content"
+                      rows={8}
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder={
+                        ingestMode === "note"
+                          ? "Write a note, meeting summary, decision log, or operating memo..."
+                          : "Paste plain text, notes, a research excerpt, CSV rows, or any workspace content..."
+                      }
+                      className="w-full rounded-[2rem] border border-slate-200 bg-white px-5 py-4 text-sm leading-6 text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-50"
+                    />
+                    <div className="absolute bottom-4 right-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      {charCount} chars · {wordCount} words
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {["Executive summary", "Customer feedback", "Meeting notes", "Runbook", "FAQ"].map((tag) => (
                       <button
                         key={tag}
                         type="button"
                         onClick={() => {
-                          const field = document.querySelector<HTMLTextAreaElement>("textarea[name='content']");
-                          if (field && !field.value.trim()) {
-                            field.value = `${tag}\n\n`;
-                            field.focus();
+                          if (noteContent.trim() && !confirm("Do you want to replace your current note with this template?")) {
+                            return;
                           }
+                          const template = TEMPLATES[tag] || (tag + "\n\n");
+                          setNoteContent(template);
                         }}
                         className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
                       >
@@ -1125,11 +1255,15 @@ function TextField({
   name,
   placeholder,
   helper,
+  value,
+  onChange,
 }: {
   label: string;
   name: string;
   placeholder: string;
   helper?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className="block space-y-2">
@@ -1137,6 +1271,8 @@ function TextField({
       <input
         name={name}
         placeholder={placeholder}
+        value={value}
+        onChange={onChange}
         className="w-full rounded-[1.4rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-50"
       />
       {helper ? <p className="text-[11px] text-slate-500">{helper}</p> : null}

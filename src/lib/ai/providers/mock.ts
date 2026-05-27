@@ -89,6 +89,24 @@ export class MockProvider implements AIProvider {
       });
     }
 
+    // Dynamic Google Sheets Search
+    let matchedSheetRows: any[] = [];
+    if (sheetsData && sheetsData.rows && sheetsData.rows.length > 0) {
+      // Filter out common Hindi/English query stop words
+      const stopWords = ["se", "h", "ko", "ki", "ka", "me", "main", "hai", "koi", "name", "record", "entries", "entry", "kuch", "kya", "batao", "btao"];
+      const words = query.split(" ")
+        .map(w => w.replace(/[?.!,;:]/g, "").trim().toLowerCase())
+        .filter(w => w.length > 1 && !stopWords.includes(w));
+      
+      matchedSheetRows = sheetsData.rows.filter((r: any) => {
+        return Object.values(r).some((val) => {
+          if (val === null || val === undefined) return false;
+          const strVal = String(val).toLowerCase();
+          return words.some(w => strVal.includes(w));
+        });
+      });
+    }
+
     if (/send\s+email/i.test(query) || /email\s+bhej/i.test(query) || /rathorchanchal76east/i.test(query)) {
       const emailMatch = query.match(/[\w.-]+@[\w.-]+\.\w+/);
       const recipient = emailMatch ? emailMatch[0] : "rathorchanchal76east@gmail.com";
@@ -112,6 +130,23 @@ I scanned your connected HubSpot CRM for contacts matching your query:
 👤 Contact: Maria Johnson (Sample Contact)
 ✉️ Email: emailmaria@hubspot.com
 📍 City: Brisbane]`;
+    }
+    else if (matchedSheetRows.length > 0) {
+      const spreadsheetName = sheetsData.spreadsheet_name || "Google Sheet";
+      const headers = sheetsData.headers || Object.keys(sheetsData.rows[0]);
+      
+      let tableMarkdown = `| ${headers.join(" | ")} |\n`;
+      tableMarkdown += `| ${headers.map(() => ":---").join(" | ")} |\n`;
+      
+      matchedSheetRows.forEach((r: any) => {
+        const rowValues = headers.map((h: string) => {
+          const val = r[h];
+          return val !== null && val !== undefined ? String(val) : "";
+        });
+        tableMarkdown += `| ${rowValues.join(" | ")} |\n`;
+      });
+
+      mockResponse = `I scanned your connected **Google Sheets** ("${spreadsheetName}") and found **${matchedSheetRows.length} matching record(s)**:\n\n${tableMarkdown}\n\n*(Grounding verified via active Google Sheets live integration)*`;
     }
     else if (matchedContacts.length > 0) {
       mockResponse = `I scanned your connected **HubSpot CRM** for contacts matching your query:\n\n` +
