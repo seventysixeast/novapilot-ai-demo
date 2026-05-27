@@ -12,6 +12,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   hubspot: "bg-orange-50 text-orange-600 border-orange-100",
   google_analytics: "bg-sky-50 text-sky-600 border-sky-100",
   ga4: "bg-sky-50 text-sky-600 border-sky-100",
+  google_sheets: "bg-emerald-50 text-emerald-600 border-emerald-100",
   default: "bg-slate-50 text-slate-600 border-slate-100",
 };
 
@@ -33,6 +34,12 @@ const AVAILABLE_PROVIDERS = [
     name: "Google Analytics 4",
     description: "Sync active users, pageviews, session duration, and traffic channels.",
     category: "Analytics & Traffic",
+  },
+  {
+    id: "google_sheets",
+    name: "Google Sheets",
+    description: "Sync live worksheets, tracking logs, sales reps, and customer spreadsheets.",
+    category: "Documents & Sheets",
   },
 ];
 

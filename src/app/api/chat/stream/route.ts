@@ -60,12 +60,29 @@ export async function POST(req: NextRequest) {
     // 4. Fetch Synced Sources Context
     const { data: connectedSources } = await supabase
       .from("data_connections")
-      .select("provider, status, last_synced_at")
+      .select("provider, status, last_synced_at, metadata")
       .eq("organization_id", membership.organizationId);
 
     const freshSources = (connectedSources ?? []).filter(
       (s) => s.status === "connected" && s.last_synced_at && new Date(s.last_synced_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
     );
+
+    // Fetch Google Sheets context if connected and synced
+    const sheetsConnector = (connectedSources ?? []).find(
+      (s) => s.provider.toLowerCase() === "google_sheets" && s.status === "connected"
+    );
+
+    let sheetsContext = "";
+    if (sheetsConnector && sheetsConnector.metadata) {
+      const sheetsData = sheetsConnector.metadata as any;
+      const rows = sheetsData.rows || [];
+      const sheetName = sheetsData.spreadsheet_name || "Google Sheet";
+      if (rows.length > 0) {
+        sheetsContext = `\n\nGoogle Sheets Data (synced from "${sheetName}"):\n` +
+          rows.slice(0, 15).map((r: any, idx: number) => `Row ${idx + 1}: ` + Object.entries(r).map(([k, v]) => `${k}: ${v}`).join(', ')).join('\n') +
+          `\n*(Grounding verified via active Google Sheets Integration)*`;
+      }
+    }
 
     // Fetch latest analytics metrics synced from Stripe/HubSpot/GA4
     const { data: latestMetrics } = await supabase
@@ -114,14 +131,15 @@ Ensure that you replace 'recipient_email' with the actual email address (e.g. ra
 ${conversationHistory}
 ${contextString}
 ${metricsContext}
+${sheetsContext}
 ${emailOverrideRule}
 
 Rules:
-1) Use the provided context and conversation history to construct your response.
+1) Use the provided context, Google Sheets context, and conversation history to construct your response.
 2) If the user's question references past messages (using pronouns like "this", "it", "that", "earlier", "their", etc.), resolve them using the conversation history.
 3) If no context or history is relevant, explain why.
 4) Professional tone.
-5) Always reference the synced analytics metrics (like MRR, Active Users, LTV, CAC) when asked about growth, pipeline performance, anomalies, or system metrics.
+5) Always reference the synced analytics metrics (like MRR, Active Users, LTV, CAC) or Google Sheets data when asked about growth, campaigns, pipeline performance, anomalies, or system metrics.
 6) If the user asks you to send an email or outbound message (e.g. "Send email to bh@hubspot.com about payment success" or "bh@hubspot.com ko email bhej do that payment is done"), you MUST generate a highly personalized and professional email subject and body dynamically using the available user context, and output it in this exact action block format:
    [ACTION_EMAIL: TO=recipient_email | SUBJECT=Subject | BODY=Body Content]
    Do NOT use markdown inside the action block tag itself. You can add friendly conversational introduction text before the block.`;

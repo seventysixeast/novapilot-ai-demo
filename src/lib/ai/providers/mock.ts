@@ -110,8 +110,23 @@ I scanned your connected HubSpot CRM for contacts matching your query:
     else if (query.includes("user") || query.includes("member") || query.includes("team") || query.includes("people")) {
       mockResponse = "Your active workspace currently contains **2 onboarded team members** (including Dinesh Sharma).\n\n**Team Status:**\n* **Database Replication:** Stable (Health Score: 96/100)\n* **Role Synchronization:** Active (Super Admin role mapped)\n* **Recent Invites:** None pending.";
     }
+    else if (query.includes("sheet") || query.includes("google sheet") || query.includes("spreadsheet")) {
+      mockResponse = `I scanned your connected **Google Sheets** connector and found the spreadsheet **"Q2 Sales Leads & Campaign Tracker"**:\n\n` +
+        `| Lead Name | Email | Deal Value | Sales Rep | Status |\n` +
+        `| :--- | :--- | :--- | :--- | :--- |\n` +
+        `| **Amit Rathor** | \`novapilot.test@outlook.com\` | $12,500 | Chanchal Rathor | Closed Won |\n` +
+        `| **Sarah Connor** | \`sarah.c@skyline.io\` | $4,500 | Dinesh Sharma | In Discussion |\n` +
+        `| **Bruce Wayne** | \`bruce@waynecorp.com\` | $85,000 | Chanchal Rathor | Proposal Sent |\n` +
+        `| **Peter Parker** | \`peter.p@dailybugle.com\` | $1,500 | Dinesh Sharma | Contacted |\n` +
+        `| **Tony Stark** | \`tony@starkindustries.com\` | $150,000 | Chanchal Rathor | Closed Won |\n\n` +
+        `**Key Analytics from Sheets:**\n` +
+        `* **Total Deal Value in Pipeline:** $253,500\n` +
+        `* **Top Performing Rep:** Chanchal Rathor ($247,500 across 3 deals)\n` +
+        `* **Conversion Rate Range:** 40% to 99%\n\n` +
+        `*(Grounding verified via active Google Sheets live integration)*`;
+    }
     else if (query.includes("source") || query.includes("connector") || query.includes("stripe") || query.includes("hubspot")) {
-      mockResponse = "I am currently connected to three active data pipelines:\n1. 💳 **Stripe:** Tracking subscription payments and invoicing status.\n2. 🤝 **HubSpot:** Synchronizing sales pipelines and CRM contacts.\n3. 📈 **Google Analytics (GA4):** Grounding live traffic, session volume, and conversions.\n\nAll three connectors are fully authenticated and grounding my cognitive synthesis.";
+      mockResponse = "I am currently connected to four active data pipelines:\n1. 💳 **Stripe:** Tracking subscription payments and invoicing status.\n2. 🤝 **HubSpot:** Synchronizing sales pipelines and CRM contacts.\n3. 📈 **Google Analytics (GA4):** Grounding live traffic, session volume, and conversions.\n4. 📊 **Google Sheets:** Syncing custom worksheets and tracking sheets.\n\nAll connectors are fully authenticated and grounding my cognitive synthesis.";
     }
     else if (query.includes("document") || query.includes("pdf") || query.includes("file") || query.includes("upload")) {
       mockResponse = "To train me on your own company documents, PDFs, or spreadsheets, head over to the **Documents** tab in the sidebar.\n\nOnce you upload a file, our background worker will automatically segment the text, generate vector embeddings, and store them in the Supabase Vector Database. I will then use those embeddings to answer your questions with precise source-grounded citations!";
