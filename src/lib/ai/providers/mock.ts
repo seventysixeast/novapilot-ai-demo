@@ -18,22 +18,26 @@ export class MockProvider implements AIProvider {
       userQuery = userQuery.slice("user current message:".length).trim();
     }
     const query = userQuery.toLowerCase();
+    const cleanQuery = query.replace(/[?.!,;:]/g, "").trim();
     const fullPromptLower = prompt.toLowerCase();
     
     // Check if the current message is a short, generic query or conversational reference
-    const isGenericQuery = query.length < 15 && (
-      query.includes("btao") || 
-      query.includes("tell") || 
-      query.includes("show") || 
-      query.includes("what") || 
-      query.includes("explain") || 
-      query.includes("again") || 
-      query.includes("now") || 
-      query.includes("wahi") || 
-      query.includes("same") || 
-      query.includes("kitni") ||
-      query.trim() === "ab" ||
-      query.trim() === "ab btao"
+    const isGenericQuery = cleanQuery.length < 15 && (
+      cleanQuery.includes("btao") || 
+      cleanQuery.includes("tell") || 
+      cleanQuery.includes("show") || 
+      cleanQuery.includes("what") || 
+      cleanQuery.includes("explain") || 
+      cleanQuery.includes("again") || 
+      cleanQuery.includes("now") || 
+      cleanQuery.includes("wahi") || 
+      cleanQuery.includes("same") || 
+      cleanQuery.includes("kitni") ||
+      cleanQuery.includes("kya") ||
+      cleanQuery === "ab" ||
+      cleanQuery === "and" ||
+      cleanQuery === "then" ||
+      cleanQuery.length <= 6 // Automatically matches short followups like "ab?", "toh?", "kya?"
     );
 
     const hasSheetContext = fullPromptLower.includes("sheet") || fullPromptLower.includes("spreadsheet") || fullPromptLower.includes("google_sheets");
