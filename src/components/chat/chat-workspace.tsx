@@ -47,6 +47,8 @@ export function ChatWorkspace({
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | undefined>(errorParam);
   const [trustByMessageId, setTrustByMessageId] = useState<Record<string, TrustMeta | undefined>>(initialTrustByMessageId);
+  const [threadToDelete, setThreadToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -270,16 +272,18 @@ export function ChatWorkspace({
                   </Link>
 
                   {/* Delete Conversation Button */}
-                  <form action={deleteThread} className="opacity-0 group-hover:opacity-100 transition-all flex items-center">
-                    <input type="hidden" name="thread_id" value={t.id} />
-                    <button
-                      type="submit"
-                      className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-lg transition-all"
-                      title="Delete conversation"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </form>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setThreadToDelete({ id: t.id, title: t.title || "Untitled Conversation" });
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-all text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-lg"
+                    title="Delete conversation"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               );
             })
@@ -488,6 +492,69 @@ export function ChatWorkspace({
           </div>
         </div>
       </div>
+      {/* ── DELETE CONFIRMATION MODAL ── */}
+      <AnimatePresence>
+        {threadToDelete && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-slate-100"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 shadow-sm">
+                  <Trash2 className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-slate-900">Delete chat?</h3>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                    This will permanently delete the conversation history for <span className="font-semibold text-slate-800">"{threadToDelete.title}"</span>. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setThreadToDelete(null)}
+                  disabled={isDeleting}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <form
+                  action={async (formData) => {
+                    setIsDeleting(true);
+                    try {
+                      await deleteThread(formData);
+                      setThreadToDelete(null);
+                    } catch (err) {
+                      console.error("Failed to delete thread:", err);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                >
+                  <input type="hidden" name="thread_id" value={threadToDelete.id} />
+                  <button
+                    type="submit"
+                    disabled={isDeleting}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-rose-600/10 transition-all hover:bg-rose-700 active:scale-95 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Delete"
+                    )}
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
