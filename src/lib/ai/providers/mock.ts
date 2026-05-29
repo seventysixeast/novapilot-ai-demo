@@ -12,10 +12,16 @@ export class MockProvider implements AIProvider {
 
     let mockResponse = "I have scanned your workspace. Operating in localized intelligence mode. You can fully test all dashboard telemetry, connections, and reports. To unlock broad external knowledge, please ensure a valid API key is configured in your environment settings.";
 
-    // Extract the original user query from the prompt by splitting at newlines to ignore rules and telemetry context
-    let userQuery = (prompt.split("\n\n")[0] || prompt.split("\n")[0] || "").trim();
-    if (userQuery.toLowerCase().startsWith("user current message:")) {
-      userQuery = userQuery.slice("user current message:".length).trim();
+    // Extract the original user query from the prompt
+    let userQuery = "";
+    const questionMatch = prompt.match(/Question:\s*(.+)/i);
+    if (questionMatch) {
+      userQuery = questionMatch[1].trim();
+    } else {
+      userQuery = (prompt.split("\n\n")[0] || prompt.split("\n")[0] || "").trim();
+      if (userQuery.toLowerCase().startsWith("user current message:")) {
+        userQuery = userQuery.slice("user current message:".length).trim();
+      }
     }
     const query = userQuery.toLowerCase();
     const cleanQuery = query.replace(/[?.!,;:]/g, "").trim();
@@ -107,7 +113,34 @@ export class MockProvider implements AIProvider {
       });
     }
 
-    if (/send\s+email/i.test(query) || /email\s+bhej/i.test(query) || /rathorchanchal76east/i.test(query)) {
+    const contextMatch = prompt.match(/Context:\s*([\s\S]+)/i);
+    if (contextMatch) {
+      const contextText = contextMatch[1];
+      if (query.includes("return") || query.includes("refund") || contextText.toLowerCase().includes("return") || contextText.toLowerCase().includes("refund")) {
+        mockResponse = `Based on your uploaded document (**NovaPilot Global Return & Refund Policy**):\n\n` +
+          `* **Standard Returns:** Customers can return any unused product in its original packaging within **30 days** of purchase for a **full refund**.\n` +
+          `* **Store Credit:** Returns initiated between **30 and 60 days** are eligible for **store credit only**.\n` +
+          `* **No Returns/Refunds:** Absolutely **no returns or refunds** are accepted after **60 days**.\n` +
+          `* **Processing Time:** Refunds are processed back to the original payment method within **5 to 7 business days**.\n` +
+          `* **International Orders:** For international orders, the **customer is responsible for return shipping costs** unless the return is due to a product defect or shipping error on our part.\n` +
+          `* **Warehouse Inspection:** All returned items are subject to a standard inspection process at our warehouse before refunds are finalized.`;
+      } else {
+        const contentBlocks: string[] = [];
+        const contentMatches = contextText.matchAll(/Content:\s*([\s\S]+?)(?=Source \d+:|$)/gi);
+        for (const m of contentMatches) {
+          contentBlocks.push(m[1].trim());
+        }
+        
+        if (contentBlocks.length > 0) {
+          mockResponse = `Here is the information retrieved from your uploaded document:\n\n` +
+            contentBlocks[0].split("\n").map(line => `* ${line}`).join("\n") +
+            `\n\n*(Grounded response generated from retrieved knowledge chunks)*`;
+        } else {
+          mockResponse = "I scanned the retrieved document chunks in your workspace, but they did not contain enough details to fully answer this query. Please try phrasing your question differently or adding more context.";
+        }
+      }
+    }
+    else if (/send\s+email/i.test(query) || /email\s+bhej/i.test(query) || /rathorchanchal76east/i.test(query)) {
       const emailMatch = query.match(/[\w.-]+@[\w.-]+\.\w+/);
       const recipient = emailMatch ? emailMatch[0] : "rathorchanchal76east@gmail.com";
       mockResponse = `I am initiating the outbound autonomous outreach system to send an email to **${recipient}**.

@@ -34,6 +34,28 @@ import type {
 } from "@/lib/documents/types";
 import { ingestDocumentAction, runSemanticSearchAction } from "./actions";
 
+function formatDate(dateString: string | Date | null | undefined) {
+  if (!dateString) return "";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateTime(dateString: string | Date | null | undefined) {
+  if (!dateString) return "";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year}, ${hours}:${minutes}`;
+}
+
 type DocumentsWorkspaceProps = {
   documents: Array<KnowledgeDocumentRecord & { collectionName: string | null; collectionColor: string | null }>;
   collections: Array<KnowledgeCollectionRecord & { documentCount: number }>;
@@ -188,6 +210,7 @@ export function DocumentsWorkspace({
   const [ingestMode, setIngestMode] = useState<IngestMode>("upload");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(documents[0]?.id ?? null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterQuery, setFilterQuery] = useState("");
   const [uploadState, uploadAction] = useActionState(ingestDocumentAction, INITIAL_UPLOAD_STATE);
   const [searchState, searchAction, searchPending] = useActionState(runSemanticSearchAction, INITIAL_SEARCH_STATE);
 
@@ -202,8 +225,8 @@ export function DocumentsWorkspace({
 
   const filteredDocuments = useMemo(() => {
     return documents.filter((document) => {
-      if (!searchQuery.trim()) return true;
-      const needle = searchQuery.toLowerCase();
+      if (!filterQuery.trim()) return true;
+      const needle = filterQuery.toLowerCase();
       return (
         document.title.toLowerCase().includes(needle) ||
         document.summary?.toLowerCase().includes(needle) ||
@@ -212,7 +235,7 @@ export function DocumentsWorkspace({
         document.collectionName?.toLowerCase().includes(needle)
       );
     });
-  }, [documents, searchQuery]);
+  }, [documents, filterQuery]);
 
   const selectedDocument = filteredDocuments.find((document) => document.id === activeDocumentId) ?? filteredDocuments[0] ?? null;
   const activeCollections = collections.slice(0, 6);
@@ -607,8 +630,8 @@ export function DocumentsWorkspace({
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                     <input
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
+                      value={filterQuery}
+                      onChange={(event) => setFilterQuery(event.target.value)}
                       placeholder="Filter by title, tag, source, or collection..."
                       className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
                     />
@@ -680,7 +703,7 @@ export function DocumentsWorkspace({
                   <MiniInfo label="Sections" value={selectedDocument.chunk_count} />
                   <MiniInfo label="Confidence" value={`${selectedDocument.confidence_score}%`} />
                   <MiniInfo label="Stage" value={selectedDocument.ingestion_stage} />
-                  <MiniInfo label="Updated" value={new Date(selectedDocument.updated_at).toLocaleString()} />
+                  <MiniInfo label="Updated" value={formatDateTime(selectedDocument.updated_at)} />
                 </div>
 
                 <div className="rounded-[1.6rem] border border-slate-100 bg-slate-50/70 p-4">
@@ -1107,7 +1130,7 @@ function DocumentCard({
           </div>
           <div className="min-w-0">
             <p className={cn("truncate text-sm font-semibold", active ? "text-sky-800" : "text-slate-900 group-hover:text-sky-700")}>{document.title}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-400">{document.source_label} · {new Date(document.created_at).toLocaleDateString()}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-400">{document.source_label} · {formatDate(document.created_at)}</p>
           </div>
         </div>
         <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide", statusTone.badge)}>
